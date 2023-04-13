@@ -4,7 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+)
+
+var (
+	logger *log.Logger
 )
 
 type Response struct {
@@ -13,6 +19,11 @@ type Response struct {
 	Body        any
 	QueryString string
 	Path        string
+}
+
+func init() {
+	logger = log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime|log.Lshortfile)
+
 }
 
 func echo(w http.ResponseWriter, req *http.Request) {
@@ -40,16 +51,18 @@ func echo(w http.ResponseWriter, req *http.Request) {
 		Path:        req.URL.Path,
 	}
 
-	value, err := json.Marshal(response)
+	value, err := json.MarshalIndent(response, "", "    ")
 	if err != nil {
 		panic("could not marshal to json")
 	}
 
-	fmt.Printf("%s\n", value)
+	logger.Printf("%s\n", value)
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s\n", value)
 }
 
 func main() {
 	http.HandleFunc("/", echo)
+	fmt.Println("Listening on port 9001")
 	http.ListenAndServe(":9001", nil)
 }
