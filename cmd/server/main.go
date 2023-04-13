@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 var (
@@ -32,9 +34,13 @@ func echo(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		panic("error reading body")
 	}
-	respBody = reqBody
+	respBody, err = base64.StdEncoding.DecodeString(string(reqBody))
+	if err != nil {
+		logger.Println("Request body was not base64 encoded")
+		respBody = reqBody
+	}
 
-	if req.Header.Get("Accept") == "application/json" && len(reqBody) > 0 {
+	if contains(strings.Split(req.Header.Get("Accept"), ","), "application/json") && len(reqBody) > 0 {
 		jsonBody := make(map[string]interface{})
 		err = json.Unmarshal(reqBody, &jsonBody)
 		if err != nil {
@@ -65,4 +71,13 @@ func main() {
 	http.HandleFunc("/", echo)
 	fmt.Println("Listening on port 9001")
 	http.ListenAndServe(":9001", nil)
+}
+
+func contains[T comparable](values []T, value T) bool {
+	for _, v := range values {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }
