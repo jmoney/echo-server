@@ -3,16 +3,19 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
+	"log/syslog"
 	"net/http"
 	"os"
 	"strings"
 )
 
 var (
-	logger *log.Logger
+	Info  *log.Logger
+	Error *log.Logger
 )
 
 type Response struct {
@@ -24,8 +27,27 @@ type Response struct {
 }
 
 func init() {
-	logger = log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime|log.Lshortfile)
+	infoLogWriter, eilw := syslog.New(syslog.LOG_NOTICE, "echo-server")
+	if eilw == nil {
+		Info = log.New(infoLogWriter,
+			"[INFO]: ",
+			log.Ldate|log.Ltime|log.Lshortfile)
+	} else {
+		Info = log.New(os.Stdout,
+			"[INFO] ",
+			log.Ldate|log.Ltime|log.Lshortfile)
+	}
 
+	errorLogWriter, eelw := syslog.New(syslog.LOG_ERR, "echo-server")
+	if eelw == nil {
+		Error = log.New(errorLogWriter,
+			"[ERROR] ",
+			log.Ldate|log.Ltime|log.Lshortfile)
+	} else {
+		Error = log.New(os.Stderr,
+			"[ERROR] ",
+			log.Ldate|log.Ltime|log.Lshortfile)
+	}
 }
 
 func echo(w http.ResponseWriter, req *http.Request) {
@@ -36,7 +58,7 @@ func echo(w http.ResponseWriter, req *http.Request) {
 	}
 	respBody, err = base64.StdEncoding.DecodeString(string(reqBody))
 	if err != nil {
-		logger.Println("Request body was not base64 encoded")
+		Info.Println("Request body was not base64 encoded")
 		respBody = reqBody
 	}
 
@@ -44,9 +66,10 @@ func echo(w http.ResponseWriter, req *http.Request) {
 		jsonBody := make(map[string]interface{})
 		err = json.Unmarshal(reqBody, &jsonBody)
 		if err != nil {
-			panic("request body was not json")
+			Error.Println("Request body was not json")
+		} else {
+			respBody = jsonBody
 		}
-		respBody = jsonBody
 	}
 
 	response := Response{
@@ -57,22 +80,29 @@ func echo(w http.ResponseWriter, req *http.Request) {
 		Path:        req.URL.Path,
 	}
 
-	value, err := json.MarshalIndent(response, "", "    ")
+	value, err := json.Marshal(response)
 	if err != nil {
-		panic("could not marshal to json")
+		Error.Printf("could not marshal to json: %v\n", response)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "could not marshal to json")
+		return
 	}
 
-	logger.Printf("%s\n", value)
+	Info.Printf("%s\n", value)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s\n", value)
 }
 
 func main() {
+	port := flag.Int("port", 9001, "The port to connect too.")
+	flag.Parse()
+
 	http.HandleFunc("/", echo)
-	fmt.Println("Listening on port 9001")
-	http.ListenAndServe(":9001", nil)
+	fmt.Printf("Listening on port %d\n", *port)
+	http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 }
 
+// function that checks if a value is in a slice using comparable generics
 func contains[T comparable](values []T, value T) bool {
 	for _, v := range values {
 		if v == value {
