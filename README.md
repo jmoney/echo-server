@@ -1,5 +1,19 @@
 # echo-server
 
+## Overview
+
+|| Arguemment || Description || Default Value ||s
+| --- | --- | --- |
+| port | The port to connect too. | 9001 |
+| type | The type of server to run. Options are http, websocket, or all | all |
+
+## Installation
+
+```bash
+brew tap jmoney/server-utils
+brew install echo-server
+```
+
 ## Run Locally
 
 ```bash
