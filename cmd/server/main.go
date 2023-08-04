@@ -10,11 +10,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
 var (
-	Info  *log.Logger
-	Error *log.Logger
+	Info     *log.Logger
+	Error    *log.Logger
+	upgrader = websocket.Upgrader{}
 )
 
 type Response struct {
@@ -23,6 +26,11 @@ type Response struct {
 	Body        any
 	QueryString string
 	Path        string
+}
+
+type WebSocketResponse struct {
+	Received string
+	Sent     string
 }
 
 func init() {
@@ -93,12 +101,61 @@ func echo(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "%s\n", value)
 }
 
+func echoWebsocket(w http.ResponseWriter, req *http.Request) {
+	// Upgrade upgrades the HTTP server connection to the WebSocket protocol.
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Print("upgrade failed: ", err)
+		return
+	}
+	defer conn.Close()
+
+	// Continuosly read and write message
+	for {
+		mt, received, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("read failed:", err)
+			break
+		}
+		sent := []byte(fmt.Sprintf("You sent: %s", string(received)))
+		err = conn.WriteMessage(mt, sent)
+		if err != nil {
+			log.Println("write failed:", err)
+			break
+		}
+		response := WebSocketResponse{
+			Received: strings.TrimSuffix(string(received), "\n"),
+			Sent:     strings.TrimSuffix(string(sent), "\n"),
+		}
+		value, err := json.Marshal(response)
+		if err != nil {
+			Error.Printf("could not marshal to json: %v\n", response)
+			return
+		}
+
+		Info.Printf("%s\n", value)
+	}
+}
+
 func main() {
-	port := flag.Int("port", 9002, "The port to connect too.")
+	port := flag.Int("port", 9001, "The port to connect too.")
+	server_type := flag.String("type", "all", "The type of server to run. Options are http, websocket, or all")
 	flag.Parse()
 
-	http.HandleFunc("/", echo)
-	Info.Printf("Listening on port %d\n", *port)
+	if *server_type == "http" {
+		http.HandleFunc("/http", echo)
+	} else if *server_type == "websocket" {
+		http.HandleFunc("/websocket", echoWebsocket)
+	} else if *server_type == "all" {
+		http.HandleFunc("/http", echo)
+		http.HandleFunc("/websocket", echoWebsocket)
+	} else {
+		Error.Printf("server_type %s is not supported\n", *server_type)
+		os.Exit(1)
+	}
+
+	Info.Printf("The server type \"%s\" is listening on port %d\n", *server_type, *port)
 	http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 }
 
