@@ -30,7 +30,7 @@ func init() {
 	infoLogWriter, eilw := syslog.New(syslog.LOG_NOTICE, "echo-server")
 	if eilw == nil {
 		Info = log.New(infoLogWriter,
-			"[INFO]: ",
+			"[INFO] ",
 			log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
 		Info = log.New(os.Stdout,
@@ -38,7 +38,7 @@ func init() {
 			log.Ldate|log.Ltime|log.Lshortfile)
 	}
 
-	errorLogWriter, eelw := syslog.New(syslog.LOG_ERR, "echo-server")
+	errorLogWriter, eelw := syslog.New(syslog.LOG_ERR|syslog.LOG_USER, "echo-server")
 	if eelw == nil {
 		Error = log.New(errorLogWriter,
 			"[ERROR] ",
@@ -94,11 +94,11 @@ func echo(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	port := flag.Int("port", 9001, "The port to connect too.")
+	port := flag.Int("port", 9002, "The port to connect too.")
 	flag.Parse()
 
 	http.HandleFunc("/", echo)
-	fmt.Printf("Listening on port %d\n", *port)
+	log.Printf("Listening on port %d\n", *port)
 	http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 }
 
