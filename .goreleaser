@@ -30,34 +30,34 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
-dockers:
-  # You can have multiple Docker images.
-  -
-    # ID of the image, needed if you want to filter by it later on (e.g. on custom publishers).
-    id: echo-server
+# dockers:
+#   # You can have multiple Docker images.
+#   -
+#     # ID of the image, needed if you want to filter by it later on (e.g. on custom publishers).
+#     id: echo-server
 
-    # GOOS of the built binaries/packages that should be used.
-    goos: linux
+#     # GOOS of the built binaries/packages that should be used.
+#     goos: linux
 
-    # GOARCH of the built binaries/packages that should be used.
-    goarch: amd64
+#     # GOARCH of the built binaries/packages that should be used.
+#     goarch: amd64
 
-    # GOAMD64 of the built binaries/packages that should be used.
-    goamd64: 'v1'
+#     # GOAMD64 of the built binaries/packages that should be used.
+#     goamd64: 'v1'
 
-    # IDs to filter the binaries/packages.
-    ids:
-      - echo-server
+#     # IDs to filter the binaries/packages.
+#     ids:
+#       - echo-server
 
-    # Templates of the Docker image names.
-    image_templates:
-      - "ghcr.io/jmoney/echo-server:latest"
-      - "ghcr.io/jmoney/echo-server:{{ .Tag }}"
-      - "ghcr.io/jmoney/echo-server:v{{ .Major }}"
+#     # Templates of the Docker image names.
+#     image_templates:
+#       - "ghcr.io/jmoney/echo-server:latest"
+#       - "ghcr.io/jmoney/echo-server:{{ .Tag }}"
+#       - "ghcr.io/jmoney/echo-server:v{{ .Major }}"
 
-    dockerfile: 'Dockerfile'
+#     dockerfile: 'Dockerfile'
 
-    use: docker
+#     use: docker
 
 # .goreleaser.yaml
 brews:
