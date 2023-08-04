@@ -1,4 +1,4 @@
-site_name: Fastly Websocket POC
+site_name: Echo Server
 theme: material
 plugins:
   - include-markdown
