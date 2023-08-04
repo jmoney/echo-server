@@ -3,16 +3,21 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
 var (
-	logger *log.Logger
+	Info     *log.Logger
+	Error    *log.Logger
+	upgrader = websocket.Upgrader{}
 )
 
 type Response struct {
@@ -23,9 +28,34 @@ type Response struct {
 	Path        string
 }
 
-func init() {
-	logger = log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime|log.Lshortfile)
+type WebSocketResponse struct {
+	Received string
+	Sent     string
+}
 
+func init() {
+	// infoLogWriter, eilw := syslog.New(syslog.LOG_NOTICE, "echo-server")
+
+	// if eilw == nil {
+	// 	Info = log.New(infoLogWriter,
+	// 		"[INFO] ",
+	// 		log.Ldate|log.Ltime|log.Lshortfile)
+	// } else {
+	Info = log.New(os.Stdout,
+		"[INFO] ",
+		log.Ldate|log.Ltime|log.Lshortfile)
+	// }
+
+	// errorLogWriter, eelw := syslog.New(syslog.LOG_ERR|syslog.LOG_USER, "echo-server")
+	// if eelw == nil {
+	// 	Error = log.New(errorLogWriter,
+	// 		"[ERROR] ",
+	// 		log.Ldate|log.Ltime|log.Lshortfile)
+	// } else {
+	Error = log.New(os.Stderr,
+		"[ERROR] ",
+		log.Ldate|log.Ltime|log.Lshortfile)
+	// }
 }
 
 func echo(w http.ResponseWriter, req *http.Request) {
@@ -36,7 +66,7 @@ func echo(w http.ResponseWriter, req *http.Request) {
 	}
 	respBody, err = base64.StdEncoding.DecodeString(string(reqBody))
 	if err != nil {
-		logger.Println("Request body was not base64 encoded")
+		Info.Println("Request body was not base64 encoded")
 		respBody = reqBody
 	}
 
@@ -44,9 +74,10 @@ func echo(w http.ResponseWriter, req *http.Request) {
 		jsonBody := make(map[string]interface{})
 		err = json.Unmarshal(reqBody, &jsonBody)
 		if err != nil {
-			panic("request body was not json")
+			Error.Println("Request body was not json")
+		} else {
+			respBody = jsonBody
 		}
-		respBody = jsonBody
 	}
 
 	response := Response{
@@ -57,22 +88,78 @@ func echo(w http.ResponseWriter, req *http.Request) {
 		Path:        req.URL.Path,
 	}
 
-	value, err := json.MarshalIndent(response, "", "    ")
+	value, err := json.Marshal(response)
 	if err != nil {
-		panic("could not marshal to json")
+		Error.Printf("could not marshal to json: %v\n", response)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "could not marshal to json")
+		return
 	}
 
-	logger.Printf("%s\n", value)
+	Info.Printf("%s\n", value)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s\n", value)
 }
 
-func main() {
-	http.HandleFunc("/", echo)
-	fmt.Println("Listening on port 9001")
-	http.ListenAndServe(":9001", nil)
+func echoWebsocket(w http.ResponseWriter, req *http.Request) {
+	// Upgrade upgrades the HTTP server connection to the WebSocket protocol.
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Print("upgrade failed: ", err)
+		return
+	}
+	defer conn.Close()
+
+	// Continuosly read and write message
+	for {
+		mt, received, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("read failed:", err)
+			break
+		}
+		sent := []byte(fmt.Sprintf("You sent: %s", string(received)))
+		err = conn.WriteMessage(mt, sent)
+		if err != nil {
+			log.Println("write failed:", err)
+			break
+		}
+		response := WebSocketResponse{
+			Received: strings.TrimSuffix(string(received), "\n"),
+			Sent:     strings.TrimSuffix(string(sent), "\n"),
+		}
+		value, err := json.Marshal(response)
+		if err != nil {
+			Error.Printf("could not marshal to json: %v\n", response)
+			return
+		}
+
+		Info.Printf("%s\n", value)
+	}
 }
 
+func main() {
+	port := flag.Int("port", 9001, "The port to connect too.")
+	server_type := flag.String("type", "all", "The type of server to run. Options are http, websocket, or all")
+	flag.Parse()
+
+	if *server_type == "http" {
+		http.HandleFunc("/http", echo)
+	} else if *server_type == "websocket" {
+		http.HandleFunc("/websocket", echoWebsocket)
+	} else if *server_type == "all" {
+		http.HandleFunc("/http", echo)
+		http.HandleFunc("/websocket", echoWebsocket)
+	} else {
+		Error.Printf("server_type %s is not supported\n", *server_type)
+		os.Exit(1)
+	}
+
+	Info.Printf("The server type \"%s\" is listening on port %d\n", *server_type, *port)
+	http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
+}
+
+// function that checks if a value is in a slice using comparable generics
 func contains[T comparable](values []T, value T) bool {
 	for _, v := range values {
 		if v == value {
