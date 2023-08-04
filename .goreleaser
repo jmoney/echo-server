@@ -124,7 +124,7 @@ brews:
     # Defaults are shown.
     commit_author:
       name: goreleaserbot
-      email: noreply@gmail.com
+      email: release@jmoney.dev
 
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
 
