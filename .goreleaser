@@ -3,7 +3,8 @@ project_name: echo-server
 builds:
   -
     id: echo-server
-    main: ./cmd/server/main.go
+    main: ./cmd/server
+    binary: echo-server
 
     env:
       - CGO_ENABLED=0
@@ -15,10 +16,7 @@ builds:
       - arm64
 
 archives:
-  - replacements:
-      darwin: darwin
-      linux: linux
-      amd64: x86_64
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: 'checksums.txt'
@@ -66,7 +64,7 @@ brews:
   -
     name: "echo-server@{{ .Tag }}"
 
-    tap:
+    repository:
       owner: jmoney
       name: homebrew-server-utils
 
@@ -78,7 +76,7 @@ brews:
     # Defaults are shown.
     commit_author:
       name: goreleaserbot
-      email: noreply@gmail.com
+      email: release@jmoney.dev
 
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
 
@@ -112,7 +110,7 @@ brews:
   -
     name: "echo-server"
 
-    tap:
+    repository:
       owner: jmoney
       name: homebrew-server-utils
 
