@@ -15,10 +15,7 @@ builds:
       - arm64
 
 archives:
-  - replacements:
-      darwin: darwin
-      linux: linux
-      amd64: x86_64
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: 'checksums.txt'
